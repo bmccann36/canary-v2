@@ -8,7 +8,9 @@ export const awsConfig = {
   }
 };
 
+const buildType = import.meta.env.VITE_BUILD_TYPE || 'STABLE';
+
 export const APP_CONFIG = {
-  buildType: 'STABLE',
-  version: '1.0.0'
+  buildType: buildType.toUpperCase(),
+  version: buildType.toLowerCase() === 'next' ? '2.0.0-canary' : '1.0.0'
 };

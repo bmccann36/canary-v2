@@ -37,6 +37,11 @@
   color: white;
 }
 
+.next-banner {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+}
+
 .form-group {
   margin-bottom: 20px;
 }

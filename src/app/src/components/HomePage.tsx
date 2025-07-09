@@ -39,7 +39,7 @@ const HomePage: React.FC<HomePageProps> = ({ user, onLogout }) => {
       </header>
       
       <div className="content">
-        <div className="build-banner stable-banner">
+        <div className={`build-banner ${APP_CONFIG.buildType.toLowerCase()}-banner`}>
           {APP_CONFIG.buildType} BUILD
         </div>
         
@@ -59,14 +59,14 @@ const HomePage: React.FC<HomePageProps> = ({ user, onLogout }) => {
           <div className="info-card">
             <h3>Build Information</h3>
             <p><strong>Build Type:</strong> {APP_CONFIG.buildType}</p>
-            <p><strong>Features:</strong> Core functionality only</p>
-            <p><strong>Status:</strong> Production ready</p>
+            <p><strong>Features:</strong> {APP_CONFIG.buildType.toLowerCase() === 'next' ? 'New features and improvements' : 'Core functionality only'}</p>
+            <p><strong>Status:</strong> {APP_CONFIG.buildType.toLowerCase() === 'next' ? 'Canary testing' : 'Production ready'}</p>
           </div>
           
           <div className="info-card">
             <h3>Demo Instructions</h3>
-            <p>This is the <strong>stable build</strong> of the application.</p>
-            <p>Users in organizations marked for rollout will see the <strong>next build</strong> instead.</p>
+            <p>This is the <strong>{APP_CONFIG.buildType.toLowerCase()} build</strong> of the application.</p>
+            <p>{APP_CONFIG.buildType.toLowerCase() === 'next' ? "You're seeing this because your organization is in the canary rollout list." : "Users in organizations marked for rollout will see the next build instead."}</p>
             <p>Try logging in with different demo accounts to see the routing in action.</p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { signIn, fetchUserAttributes } from 'aws-amplify/auth';
+import { APP_CONFIG } from '../config';
 import './LoginPage.css';
 
 interface LoginPageProps {
@@ -39,8 +40,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     <div className="login-container">
       <div className="login-card">
         <h2>Login to Canary Demo</h2>
-        <div className="build-banner next-banner">
-          NEXT BUILD
+        <div className={`build-banner ${APP_CONFIG.buildType.toLowerCase()}-banner`}>
+          {APP_CONFIG.buildType} BUILD
         </div>
         
         <form onSubmit={handleLogin}>

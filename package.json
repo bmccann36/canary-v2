@@ -3,17 +3,17 @@
   "version": "1.0.0",
   "description": "Canary deployment demo with edge-based routing",
   "scripts": {
-    "install-all": "npm install && cd src/stable && npm install && cd ../next && npm install",
-    "build-stable": "cd src/stable && npm run build",
-    "build-next": "cd src/next && npm run build",
+    "install-all": "npm install && cd src/app && npm install",
+    "build-stable": "cd src/app && VITE_BUILD_TYPE=stable npm run build",
+    "build-next": "cd src/app && VITE_BUILD_TYPE=next npm run build",
     "build-all": "scripts/build.sh",
     "deploy": "scripts/deploy.sh",
     "deploy-guided": "sam deploy --guided",
     "create-users": "scripts/create-test-users.sh",
     "update-rollout": "scripts/update-rollout.sh",
     "local-demo": "scripts/local-demo.sh",
-    "start-stable": "cd src/stable && npm run dev",
-    "start-next": "cd src/next && npm run dev"
+    "start-stable": "cd src/app && VITE_BUILD_TYPE=stable npm run dev",
+    "start-next": "cd src/app && VITE_BUILD_TYPE=next npm run dev"
   },
   "dependencies": {},
   "devDependencies": {}

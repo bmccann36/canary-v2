@@ -95,11 +95,11 @@ upload_builds() {
   
   # Upload stable build
   echo "📤 Uploading stable build to $STABLE_BUCKET..."
-  aws s3 sync ./src/stable/dist "s3://$STABLE_BUCKET" --delete
+  aws s3 sync ./src/stable "s3://$STABLE_BUCKET" --delete
   
   # Upload next build
   echo "📤 Uploading next build to $NEXT_BUCKET..."
-  aws s3 sync ./src/next/dist "s3://$NEXT_BUCKET" --delete
+  aws s3 sync ./src/next "s3://$NEXT_BUCKET" --delete
   
   echo "✅ Builds uploaded successfully!"
 }
@@ -135,9 +135,9 @@ show_deployment_info() {
   echo "📱 Client ID: $USER_POOL_CLIENT_ID"
   echo ""
   echo "⚙️  Environment variables for local development:"
-  echo "   REACT_APP_AWS_REGION=$REGION"
-  echo "   REACT_APP_USER_POOL_ID=$USER_POOL_ID"
-  echo "   REACT_APP_USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID"
+  echo "   VITE_AWS_REGION=$REGION"
+  echo "   VITE_USER_POOL_ID=$USER_POOL_ID"
+  echo "   VITE_USER_POOL_CLIENT_ID=$USER_POOL_CLIENT_ID"
   echo ""
   echo "📋 Next steps:"
   echo "   1. Create test users in Cognito User Pool"
