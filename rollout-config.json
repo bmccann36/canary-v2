@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2024-01-01T00:00:00Z",
+  "description": "Configuration for canary deployment rollout",
+  "rolloutOrganizations": [
+    {
+      "orgId": "ORG_ABC",
+      "name": "Example Corp ABC",
+      "addedDate": "2024-01-01T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "orgId": "ORG_TEST",
+      "name": "Test Organization",
+      "addedDate": "2024-01-01T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "orgId": "ORG_CANARY",
+      "name": "Canary Test Org",
+      "addedDate": "2024-01-01T00:00:00Z",
+      "status": "active"
+    },
+    {
+      "orgId": "ORG_BETA",
+      "name": "Beta Testing Organization",
+      "addedDate": "2024-01-01T00:00:00Z",
+      "status": "active"
+    }
+  ],
+  "rolloutConfig": {
+    "enabled": true,
+    "rolloutPercentage": 25,
+    "autoRollback": {
+      "enabled": true,
+      "errorThreshold": 5,
+      "timeWindow": 300
+    }
+  },
+  "metadata": {
+    "environment": "demo",
+    "region": "us-east-1",
+    "deploymentType": "canary"
+  }
+}
