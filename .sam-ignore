@@ -1,0 +1,12 @@
+node_modules/
+src/
+scripts/
+*.md
+project-spec.md
+rollout-config.json
+package.json
+package-lock.json
+edge-function/
+infrastructure/
+.git/
+.gitignore

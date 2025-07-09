@@ -78,38 +78,19 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${ProjectName}-${Environment}-stable
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders: ['*']
-            AllowedMethods: [GET, HEAD]
-            AllowedOrigins: ['*']
 
   # S3 Bucket for Next Build
   NextBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub ${ProjectName}-${Environment}-next
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders: ['*']
-            AllowedMethods: [GET, HEAD]
-            AllowedOrigins: ['*']
+
+  # CloudFront Origin Access Identity
+  CloudFrontIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Identity used to access S3 buckets for canary deployment
 
   # Bucket Policy for Stable Build
   StableBucketPolicy:
@@ -119,9 +100,10 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: PublicReadGetObject
+          - Sid: AllowCloudFrontAccess
             Effect: Allow
-            Principal: '*'
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontIdentity.S3CanonicalUserId
             Action: s3:GetObject
             Resource: !Sub 'arn:aws:s3:::${StableBucket}/*'
 
@@ -133,9 +115,10 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Sid: PublicReadGetObject
+          - Sid: AllowCloudFrontAccess
             Effect: Allow
-            Principal: '*'
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontIdentity.S3CanonicalUserId
             Action: s3:GetObject
             Resource: !Sub 'arn:aws:s3:::${NextBucket}/*'
 
@@ -168,89 +151,20 @@ Resources:
 
   # Lambda@Edge Function for Canary Routing
   CanaryRoutingFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${ProjectName}-${Environment}-canary-routing
       Runtime: nodejs18.x
       Handler: index.handler
+      CodeUri: lambda-edge/canary-routing/
       Role: !GetAtt CanaryRoutingLambdaRole.Arn
-      Code:
-        ZipFile: !Sub |
-          exports.handler = async (event) => {
-            const request = event.Records[0].cf.request;
-            const headers = request.headers;
-            
-            // Default to stable build
-            let targetBuild = 'stable';
-            let orgId = null;
-            
-            // Extract orgId from cookies
-            if (headers.cookie && headers.cookie.length > 0) {
-              const cookieString = headers.cookie[0].value;
-              const cookieMatch = cookieString.match(/orgId=([^;]+)/);
-              if (cookieMatch && cookieMatch[1]) {
-                orgId = cookieMatch[1];
-              }
-            }
-            
-            // List of organizations in the canary rollout
-            const rolloutOrgs = [
-              'ORG_ABC',
-              'ORG_TEST', 
-              'ORG_CANARY',
-              'ORG_BETA'
-            ];
-            
-            // Route to next build if org is in rollout list
-            if (orgId && rolloutOrgs.includes(orgId)) {
-              targetBuild = 'next';
-            }
-            
-            // Route to the appropriate S3 bucket based on build decision
-            if (targetBuild === 'next') {
-              // Route to the next build S3 bucket
-              request.origin = {
-                s3: {
-                  domainName: '${NextBucket.DomainName}',
-                  region: 'us-east-1',
-                  authMethod: 'none',
-                  path: '',
-                  customHeaders: {}
-                }
-              };
-            } else {
-              // Route to the stable build S3 bucket  
-              request.origin = {
-                s3: {
-                  domainName: '${StableBucket.DomainName}',
-                  region: 'us-east-1',
-                  authMethod: 'none',
-                  path: '',
-                  customHeaders: {}
-                }
-              };
-            }
-            
-            // Ensure we have proper URI for S3
-            if (request.uri === '/') {
-              request.uri = '/index.html';
-            }
-            
-            // Add debug headers (Lambda@Edge format)
-            request.headers['x-canary-build'] = [{ key: 'x-canary-build', value: targetBuild }];
-            request.headers['x-canary-org'] = [{ key: 'x-canary-org', value: orgId || 'unknown' }];
-            
-            return request;
-          };
+      AutoPublishAlias: live
+      Environment:
+        Variables:
+          STABLE_BUCKET_DOMAIN: !GetAtt StableBucket.DomainName
+          NEXT_BUCKET_DOMAIN: !GetAtt NextBucket.DomainName
       Description: Lambda@Edge function for canary deployment routing
       Timeout: 5
-
-  # Lambda Version for Canary Routing Function
-  CanaryRoutingFunctionVersion:
-    Type: AWS::Lambda::Version
-    Properties:
-      FunctionName: !Ref CanaryRoutingFunction
-      Description: !Sub 'Version for Lambda@Edge deployment - ${AWS::StackName}-${AWS::Region}'
 
   # CloudFront Distribution
   CloudFrontDistribution:
@@ -261,36 +175,24 @@ Resources:
         Enabled: true
         DefaultRootObject: index.html
         Origins:
-          - Id: stable-origin
+          - Id: S3Origin
             DomainName: !GetAtt StableBucket.RegionalDomainName
             S3OriginConfig:
-              OriginAccessIdentity: ''
-          - Id: next-origin
-            DomainName: !GetAtt NextBucket.RegionalDomainName
-            S3OriginConfig:
-              OriginAccessIdentity: ''
+              OriginAccessIdentity: !Sub origin-access-identity/cloudfront/${CloudFrontIdentity}
         DefaultCacheBehavior:
-          TargetOriginId: stable-origin
-          ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-          CachedMethods:
-            - GET
-            - HEAD
-          Compress: true
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: https-only
           ForwardedValues:
-            QueryString: false
-            Headers:
-              - Origin
-              - Access-Control-Request-Headers
-              - Access-Control-Request-Method
+            QueryString: true
             Cookies:
               Forward: all
+            Headers: ['Origin']
+          DefaultTTL: 0
+          MaxTTL: 0
+          MinTTL: 0
           LambdaFunctionAssociations:
-            - EventType: viewer-request
-              LambdaFunctionARN: !Ref CanaryRoutingFunctionVersion
+            - EventType: origin-request
+              LambdaFunctionARN: !Ref CanaryRoutingFunction.Version
         CustomErrorResponses:
           - ErrorCode: 404
             ResponseCode: 200
@@ -333,7 +235,7 @@ Outputs:
 
   CanaryFunctionARN:
     Description: Lambda@Edge Function ARN for Canary Routing
-    Value: !Ref CanaryRoutingFunctionVersion
+    Value: !Ref CanaryRoutingFunction.Version
     Export:
       Name: !Sub ${ProjectName}-${Environment}-CanaryFunctionARN
 
