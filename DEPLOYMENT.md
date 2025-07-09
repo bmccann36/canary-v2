@@ -5,14 +5,18 @@
 ### Option 1: Local Demo (Recommended for Testing)
 
 ```bash
-# Run both apps locally without AWS
-npm run local-demo
+# Run stable build locally
+npm run start-stable
+
+# Or run next build locally
+npm run start-next
 ```
 
 This will:
-- Start stable build on `http://localhost:3000`
-- Start next build on `http://localhost:3001`
-- Allow you to test both versions side by side
+- Start the single React app with the specified build type
+- Stable build: `http://localhost:5173` with green banner and v1.0.0
+- Next build: `http://localhost:5173` with orange banner and v2.0.0-canary
+- Allows you to test both versions using the same codebase
 
 ### Option 2: AWS Deployment (Full Production Setup)
 
@@ -75,6 +79,12 @@ brew install aws-sam-cli
 ```bash
 npm run build-all
 ```
+
+This command:
+- Builds the single React app twice with different `VITE_BUILD_TYPE` environment variables
+- Creates stable build output in `src/stable/` directory
+- Creates next build output in `src/next/` directory
+- Both builds use the same source code from `src/app/`
 
 ### 2. Deploy Infrastructure
 
@@ -148,37 +158,34 @@ sam build
 sam deploy --guided
 
 # 3. Upload builds manually
-aws s3 sync src/stable/dist s3://your-stable-bucket/
-aws s3 sync src/next/dist s3://your-next-bucket/
+aws s3 sync src/stable s3://your-stable-bucket/
+aws s3 sync src/next s3://your-next-bucket/
 ```
 
 ## Local Development
 
-### Running Individual Apps
+### Running Different Build Types
 
 ```bash
-# Start stable app only
+# Start stable build (green banner, v1.0.0)
 npm run start-stable
 
-# Start next app only
+# Start next build (orange banner, v2.0.0-canary)
 npm run start-next
 ```
 
 ### Environment Variables
 
-Create `.env` files in each app directory:
+Create a `.env` file in the app directory:
 
 ```bash
-# src/stable/.env
-VITE_AWS_REGION=us-east-1
-VITE_USER_POOL_ID=your-user-pool-id
-VITE_USER_POOL_CLIENT_ID=your-client-id
-
-# src/next/.env
+# src/app/.env
 VITE_AWS_REGION=us-east-1
 VITE_USER_POOL_ID=your-user-pool-id
 VITE_USER_POOL_CLIENT_ID=your-client-id
 ```
+
+The `VITE_BUILD_TYPE` environment variable is automatically set by the npm scripts to control which build variant is shown.
 
 ## Demo Flow
 
