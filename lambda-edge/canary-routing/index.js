@@ -37,7 +37,7 @@ exports.handler = async (event) => {
     // Route to the next build S3 bucket
     request.origin = {
       s3: {
-        domainName: process.env.NEXT_BUCKET_DOMAIN,
+        domainName: 'canary-demo-v2-dev-next.s3.amazonaws.com',
         region: 'us-east-1',
         authMethod: 'origin-access-identity',
         path: '',
@@ -48,7 +48,7 @@ exports.handler = async (event) => {
     // Route to the stable build S3 bucket  
     request.origin = {
       s3: {
-        domainName: process.env.STABLE_BUCKET_DOMAIN,
+        domainName: 'canary-demo-v2-dev-stable.s3.amazonaws.com',
         region: 'us-east-1',
         authMethod: 'origin-access-identity',
         path: '',

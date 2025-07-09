@@ -15,13 +15,6 @@ Parameters:
     AllowedValues: [dev, staging, prod]
     Description: Environment name
 
-Globals:
-  Function:
-    Timeout: 30
-    Runtime: nodejs18.x
-    Environment:
-      Variables:
-        ENVIRONMENT: !Ref Environment
 
 Resources:
   # Cognito User Pool
@@ -159,10 +152,6 @@ Resources:
       CodeUri: lambda-edge/canary-routing/
       Role: !GetAtt CanaryRoutingLambdaRole.Arn
       AutoPublishAlias: live
-      Environment:
-        Variables:
-          STABLE_BUCKET_DOMAIN: !GetAtt StableBucket.DomainName
-          NEXT_BUCKET_DOMAIN: !GetAtt NextBucket.DomainName
       Description: Lambda@Edge function for canary deployment routing
       Timeout: 5
 
