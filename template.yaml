@@ -139,6 +139,119 @@ Resources:
             Action: s3:GetObject
             Resource: !Sub 'arn:aws:s3:::${NextBucket}/*'
 
+  # IAM Role for Lambda@Edge
+  CanaryRoutingLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - edgelambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Lambda@Edge Function for Canary Routing
+  CanaryRoutingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${ProjectName}-${Environment}-canary-routing
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt CanaryRoutingLambdaRole.Arn
+      Code:
+        ZipFile: !Sub |
+          exports.handler = async (event) => {
+            const request = event.Records[0].cf.request;
+            const headers = request.headers;
+            
+            // Default to stable build
+            let targetBuild = 'stable';
+            let orgId = null;
+            
+            // Extract orgId from cookies
+            if (headers.cookie && headers.cookie.length > 0) {
+              const cookieString = headers.cookie[0].value;
+              const cookieMatch = cookieString.match(/orgId=([^;]+)/);
+              if (cookieMatch && cookieMatch[1]) {
+                orgId = cookieMatch[1];
+              }
+            }
+            
+            // List of organizations in the canary rollout
+            const rolloutOrgs = [
+              'ORG_ABC',
+              'ORG_TEST', 
+              'ORG_CANARY',
+              'ORG_BETA'
+            ];
+            
+            // Route to next build if org is in rollout list
+            if (orgId && rolloutOrgs.includes(orgId)) {
+              targetBuild = 'next';
+            }
+            
+            // Route to the appropriate S3 bucket based on build decision
+            if (targetBuild === 'next') {
+              // Route to the next build S3 bucket
+              request.origin = {
+                s3: {
+                  domainName: '${NextBucket.DomainName}',
+                  region: 'us-east-1',
+                  authMethod: 'none',
+                  path: '',
+                  customHeaders: {}
+                }
+              };
+            } else {
+              // Route to the stable build S3 bucket  
+              request.origin = {
+                s3: {
+                  domainName: '${StableBucket.DomainName}',
+                  region: 'us-east-1',
+                  authMethod: 'none',
+                  path: '',
+                  customHeaders: {}
+                }
+              };
+            }
+            
+            // Ensure we have proper URI for S3
+            if (request.uri === '/') {
+              request.uri = '/index.html';
+            }
+            
+            // Add debug headers (Lambda@Edge format)
+            request.headers['x-canary-build'] = [{ key: 'x-canary-build', value: targetBuild }];
+            request.headers['x-canary-org'] = [{ key: 'x-canary-org', value: orgId || 'unknown' }];
+            
+            return request;
+          };
+      Description: Lambda@Edge function for canary deployment routing
+      Timeout: 5
+
+  # Lambda Version for Canary Routing Function
+  CanaryRoutingFunctionVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref CanaryRoutingFunction
+      Description: !Sub 'Version for Lambda@Edge deployment - ${AWS::StackName}-${AWS::Region}'
+
   # CloudFront Distribution
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
@@ -175,6 +288,9 @@ Resources:
               - Access-Control-Request-Method
             Cookies:
               Forward: all
+          LambdaFunctionAssociations:
+            - EventType: viewer-request
+              LambdaFunctionARN: !Ref CanaryRoutingFunctionVersion
         CustomErrorResponses:
           - ErrorCode: 404
             ResponseCode: 200
@@ -214,4 +330,10 @@ Outputs:
     Value: !Sub https://${CloudFrontDistribution.DomainName}
     Export:
       Name: !Sub ${ProjectName}-${Environment}-CloudFrontURL
+
+  CanaryFunctionARN:
+    Description: Lambda@Edge Function ARN for Canary Routing
+    Value: !Ref CanaryRoutingFunctionVersion
+    Export:
+      Name: !Sub ${ProjectName}-${Environment}-CanaryFunctionARN
 
